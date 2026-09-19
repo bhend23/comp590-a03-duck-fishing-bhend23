@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2017 by szafird (http://jsbin.com/rofeyi/2/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html>
+<body>
+	<canvas id="myCanvas" width="250" height="300"></canvas>
+</body>
+<script> "use strict"
+	window.onload = function() {
+		var canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('myCanvas'));
+		var context = canvas.getContext('2d');
+
+		var duckX = 125; // duck's horizontal center, updated each frame
+		var duckSpeed = 1; // pixels per frame; flips sign at the canvas edges
+		var wingPhase = 0; // increases each frame; feeds the wing-flap oscillation
+
+		function drawDuck() {
+		context.save();
+		context.translate(duckX - 125, 0); // move the whole duck as one unit
+
+		// Duck drawn back-to-front: feet -> body -> wings -> head -> beak
+
+		//Feet (orange circles, drawn first so the body covers their tops)
+		context.beginPath();
+		context.arc(110, 255, 10, 0, 2 * Math.PI, false);
+		context.arc(145, 255, 10, 0, 2 * Math.PI, false);
+		context.fillStyle = "orange";
+		context.fill();
+
+		//Body (long yellow oval, standing up)
+		context.beginPath();
+		context.ellipse(125, 190, 45, 70, 0, 0, 2 * Math.PI);
+		context.fillStyle = "yellow";
+		context.fill();
+		context.strokeStyle = "#000";
+		context.stroke();
+
+		//Wings (yellow ovals on each side of the body), flapping around the shoulder
+		var flap = Math.sin(wingPhase) * 0.3;
+
+		context.save();
+		context.translate(85, 190);
+		context.rotate(0.3 + flap);
+		context.beginPath();
+		context.ellipse(0, 0, 18, 38, 0, 0, 2 * Math.PI);
+		context.fillStyle = "#f2d100";
+		context.fill();
+		context.stroke();
+		context.restore();
+
+		context.save();
+		context.translate(165, 190);
+		context.rotate(-0.3 - flap);
+		context.beginPath();
+		context.ellipse(0, 0, 18, 38, 0, 0, 2 * Math.PI);
+		context.fillStyle = "#f2d100";
+		context.fill();
+		context.stroke();
+		context.restore();
+
+		//Head (yellow circle on top of the body)
+		context.beginPath();
+		context.arc(125, 110, 35, 0, 2 * Math.PI, false);
+		context.fillStyle = "yellow";
+		context.fill();
+		context.strokeStyle = "#000";
+		context.stroke();
+
+		//Eyes (black circles on the head)
+		context.beginPath();
+		context.arc(115, 100, 4, 0, 2 * Math.PI, false);
+		context.arc(136, 100, 4, 0, 2 * Math.PI, false);
+		context.fillStyle = "black";
+		context.fill();
+
+		//Beak (orange triangle on the head)
+		context.beginPath();
+		context.moveTo(155, 105);
+		context.lineTo(190, 113);
+		context.lineTo(155, 122);
+		context.closePath();
+		context.fillStyle = "orange";
+		context.fill();
+		context.stroke();
+
+		context.restore();
+	};
+
+    //start drawing the first frame
+    requestAnimationFrame(mainLoop);
+                
+    //Game/Simulation Loop
+    function mainLoop() {
+    processInput();
+    update();
+    draw();
+
+    requestAnimationFrame(mainLoop); //keep reiterating through this loop
+    }
+
+    function processInput() {
+        // TODO: read any keyboard/mouse input here
+    }
+
+    function update() {
+        // Move the duck sideways, bouncing off the canvas edges
+        duckX += duckSpeed;
+        if (duckX > canvas.width - 45 || duckX < 45) {
+            duckSpeed = -duckSpeed;
+        }
+
+        // Advance the wing-flap cycle
+        wingPhase += 0.15;
+    }
+
+    function draw() {
+        // Blue background, then the duck on top of it
+        context.fillStyle = "#3aa0ff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        drawDuck();
+    }
+};
+</script>
+<head>
+  <meta name="description" content="Canvas Drawing Example">
+  <meta charset="utf-8">
+  <title>Canvas Drawing Example</title>
+</head>
+</html>

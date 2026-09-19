@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2017 by szafird (http://jsbin.com/rofeyi/2/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html>
+<body>
+	<canvas id="myCanvas" width="900" height="650"></canvas>
+	<p>Use W/A/S/D to swim around and collect fish.</p>
+	<p id="score">Fish collected: 0</p>
+</body>
+<script> "use strict"
+	window.onload = function() {
+		var canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('myCanvas'));
+		var context = canvas.getContext('2d');
+
+		var DUCK_SCALE = 0.35; 
+		var DUCK_HALF_WIDTH = 45 * DUCK_SCALE;
+		var DUCK_HALF_HEIGHT = 95 * DUCK_SCALE;
+		var DUCK_LOCAL_CENTER_Y = 170; 
+		var MOVE_SPEED = 5;
+
+		var duckX = canvas.width / 2; // duck's horizontal center, updated each frame
+		var duckY = canvas.height / 2; // duck's vertical center, updated each frame
+		var wingPhase = 0; // increases each fixed update; feeds the wing-flap oscillation
+
+		// Fish the player can swim into to collect.
+		var FISH_COUNT = 6; // how many fish are on screen at once
+		var FISH_RADIUS = 10; // used for both drawing size and collision distance
+		var fish = [];
+		var score = 0;
+
+		function randomFishPosition() {
+			var margin = FISH_RADIUS * 2;
+			return {
+				x: margin + Math.random() * (canvas.width - margin * 2),
+				y: margin + Math.random() * (canvas.height - margin * 2)
+			};
+		}
+
+		for (var i = 0; i < FISH_COUNT; i++) {
+			fish.push(randomFishPosition());
+		}
+
+		function drawFish(f) {
+			context.save();
+			context.translate(f.x, f.y);
+
+			// Body
+			context.beginPath();
+			context.ellipse(0, 0, FISH_RADIUS, FISH_RADIUS * 0.6, 0, 0, 2 * Math.PI);
+			context.fillStyle = "#ff7043";
+			context.fill();
+			context.strokeStyle = "#000";
+			context.stroke();
+
+			// Tail
+			context.beginPath();
+			context.moveTo(-FISH_RADIUS, 0);
+			context.lineTo(-FISH_RADIUS - 8, -6);
+			context.lineTo(-FISH_RADIUS - 8, 6);
+			context.closePath();
+			context.fillStyle = "#ff7043";
+			context.fill();
+			context.stroke();
+
+			// Eye
+			context.beginPath();
+			context.arc(FISH_RADIUS * 0.5, -1, 1.5, 0, 2 * Math.PI);
+			context.fillStyle = "black";
+			context.fill();
+
+			context.restore();
+		}
+
+		// Tracks which keys are currently held down.
+		var keys = {};
+		window.addEventListener('keydown', function(event) {
+			keys[event.key] = true;
+		});
+		window.addEventListener('keyup', function(event) {
+			keys[event.key] = false;
+		});
+
+		function drawDuck() {
+		context.save();
+
+		context.translate(
+			duckX - 125 * DUCK_SCALE,
+			duckY - DUCK_LOCAL_CENTER_Y * DUCK_SCALE
+		);
+		context.scale(DUCK_SCALE, DUCK_SCALE);
+
+
+
+		context.beginPath();
+		context.arc(110, 255, 10, 0, 2 * Math.PI, false);
+		context.arc(145, 255, 10, 0, 2 * Math.PI, false);
+		context.fillStyle = "orange";
+		context.fill();
+
+		//Body (long yellow oval, standing up)
+		context.beginPath();
+		context.ellipse(125, 190, 45, 70, 0, 0, 2 * Math.PI);
+		context.fillStyle = "yellow";
+		context.fill();
+		context.strokeStyle = "#000";
+		context.stroke();
+
+		//Wings (yellow ovals on each side of the body), flapping around the shoulder
+		var flap = Math.sin(wingPhase) * 0.3;
+
+		context.save();
+		context.translate(85, 190);
+		context.rotate(0.3 + flap);
+		context.beginPath();
+		context.ellipse(0, 0, 18, 38, 0, 0, 2 * Math.PI);
+		context.fillStyle = "#f2d100";
+		context.fill();
+		context.stroke();
+		context.restore();
+
+		context.save();
+		context.translate(165, 190);
+		context.rotate(-0.3 - flap);
+		context.beginPath();
+		context.ellipse(0, 0, 18, 38, 0, 0, 2 * Math.PI);
+		context.fillStyle = "#f2d100";
+		context.fill();
+		context.stroke();
+		context.restore();
+
+		//Head (yellow circle on top of the body)
+		context.beginPath();
+		context.arc(125, 110, 35, 0, 2 * Math.PI, false);
+		context.fillStyle = "yellow";
+		context.fill();
+		context.strokeStyle = "#000";
+		context.stroke();
+
+		//Eyes (black circles on the head)
+		context.beginPath();
+		context.arc(115, 100, 4, 0, 2 * Math.PI, false);
+		context.arc(136, 100, 4, 0, 2 * Math.PI, false);
+		context.fillStyle = "black";
+		context.fill();
+
+		//Beak (orange triangle on the head)
+		context.beginPath();
+		context.moveTo(155, 105);
+		context.lineTo(190, 113);
+		context.lineTo(155, 122);
+		context.closePath();
+		context.fillStyle = "orange";
+		context.fill();
+		context.stroke();
+
+		context.restore();
+	};
+
+
+    var FIXED_DT = 1000 / 60;
+    var MAX_FRAME_TIME = 250;
+    var lastTime = 0;
+    var accumulator = 0;
+
+    requestAnimationFrame(mainLoop);
+
+    //Game/Simulation Loop
+    function mainLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        var frameTime = timestamp - lastTime;
+        lastTime = timestamp;
+        if (frameTime > MAX_FRAME_TIME) frameTime = MAX_FRAME_TIME;
+
+        accumulator += frameTime;
+
+        processInput();
+
+        // Catch up the simulation using fixed-size steps, however many are needed.
+        while (accumulator >= FIXED_DT) {
+            update();
+            accumulator -= FIXED_DT;
+        }
+
+        draw(); // rendering happens exactly once per animation frame (variable rate)
+
+        requestAnimationFrame(mainLoop); //keep reiterating through this loop
+    }
+
+    var velocityX = 0;
+    var velocityY = 0;
+
+    function processInput() {
+
+        velocityX = 0;
+        velocityY = 0;
+        if (keys['a'] || keys['A']) velocityX -= MOVE_SPEED;
+        if (keys['d'] || keys['D']) velocityX += MOVE_SPEED;
+        if (keys['w'] || keys['W']) velocityY -= MOVE_SPEED;
+        if (keys['s'] || keys['S']) velocityY += MOVE_SPEED;
+    }
+
+    function update() {
+        // Move the duck, clamped so it can't swim off the canvas
+        duckX += velocityX;
+        duckY += velocityY;
+        duckX = Math.max(DUCK_HALF_WIDTH, Math.min(canvas.width - DUCK_HALF_WIDTH, duckX));
+        duckY = Math.max(DUCK_HALF_HEIGHT, Math.min(canvas.height - DUCK_HALF_HEIGHT, duckY));
+
+        // Advance the wing-flap cycle
+        wingPhase += 0.15;
+
+        checkFishCollisions();
+    }
+
+    function checkFishCollisions() {
+        var collectDistance = DUCK_HALF_WIDTH + FISH_RADIUS;
+        for (var i = 0; i < fish.length; i++) {
+            var dx = duckX - fish[i].x;
+            var dy = duckY - fish[i].y;
+            var distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < collectDistance) {
+                fish[i] = randomFishPosition(); // respawn so play continues
+                score++;
+                document.getElementById('score').textContent = 'Fish collected: ' + score;
+            }
+        }
+    }
+
+    function draw() {
+        // Blue background, then the fish and duck on top of it
+        context.fillStyle = "#3aa0ff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        for (var i = 0; i < fish.length; i++) {
+            drawFish(fish[i]);
+        }
+        drawDuck();
+    }
+};
+</script>
+<head>
+  <meta name="description" content="Fixed-Time-Step Duck Game Loop">
+  <meta charset="utf-8">
+  <title>Assignment 3: Fixed-Time-Step Duck</title>
+</head>
+</html>
